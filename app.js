@@ -108,6 +108,12 @@ const postToSocialMedia = async (alertMessage) => {
     }
 };
 
+const processNewAlert = async (alert) => {
+    const postText = createPostText(alert);
+    console.log('New alert detected:', alert.Message);
+    await postToSocialMedia(postText);
+};
+
 // Main function
 const main = async () => {
     const alerts = await fetchRiderAlerts();
@@ -116,33 +122,36 @@ const main = async () => {
         return;
     }
 
-    let latestAlert = undefined;
+    const allAlerts = [];
+    const storedTimestamp = readLatestTimestamp();
 
     if (alerts.length === undefined) {
         // Single record in XML
-        latestAlert = alerts;
+        allAlerts.push(alerts);
     }
     else {
-        // Find the alert with the newest timestamp
-        latestAlert = alerts[0];
         for (const alert of alerts) {
-            if (alert.MessageStamp > latestAlert.MessageStamp) {
-                latestAlert = alert;
-            }
+            allAlerts.push(alert);
         }
     }
 
-    const latestTimestamp = latestAlert.MessageStamp;
-    const storedTimestamp = readLatestTimestamp();
-
-    if (!storedTimestamp || latestTimestamp > storedTimestamp) {
-        const postText = createPostText(latestAlert);
-        console.log('New alert detected:', latestAlert.Message);
-        await postToSocialMedia(postText);
-        writeLatestTimestamp(latestTimestamp);
-    } else {
-        console.log('No new alert detected.');
+    const newAlerts = allAlerts.filter(alert => alert.MessageStamp > storedTimestamp);
+    if (newAlerts.length === 0) {
+        console.log('No new alerts detected.');
+        return;
     }
+    
+    let latestTimestamp = storedTimestamp;
+
+    for (const newAlert of newAlerts) {
+        await processNewAlert(newAlert);
+        
+        if (newAlert.MessageStamp > latestTimestamp) {
+            latestTimestamp = newAlert.MessageStamp;
+        }
+    }
+
+    writeLatestTimestamp(latestTimestamp);
 };
 
 // Execute the main function
