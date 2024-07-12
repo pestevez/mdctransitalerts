@@ -6,8 +6,29 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_LOG_LEVEL = 'info';
+const DEFAULT_LOG_FILE = 'logs/application.log';
+
+log4js.configure({
+    appenders: {
+        out: { type: "stdout" },
+        app: {
+            type: "file",
+            filename: process.env.LOG_FILE || DEFAULT_LOG_FILE,
+            layout: {
+                type: 'pattern',
+                pattern: '[%d{yyyy-MM-dd hh:mm:ss}] [%p] - %m',
+            },
+            maxLogSize: 10485760,
+        },
+    },
+    categories: {
+        default: {
+            appenders: ["out", "app"],
+            level: process.env.LOG_LEVEL || DEFAULT_LOG_LEVEL
+        },
+    },
+});
 const logger = log4js.getLogger();
-logger.level = process.env.LOG_LEVEL || DEFAULT_LOG_LEVEL;
 
 // URL of the rider alerts
 const RIDER_ALERTS_FEED_URL = 'https://www.miamidade.gov/transit/WebServices/RiderAlerts/';
