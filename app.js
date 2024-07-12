@@ -1,8 +1,14 @@
 require('dotenv').config();
 const axios = require('axios');
+const log4js = require('log4js');
 const xml2js = require('xml2js');
 const fs = require('fs');
 const path = require('path');
+
+const DEFAULT_LOG_LEVEL = 'info';
+
+const logger = log4js.getLogger();
+logger.level = process.env.LOG_LEVEL || DEFAULT_LOG_LEVEL;
 
 // URL of the rider alerts
 const RIDER_ALERTS_FEED_URL = 'https://www.miamidade.gov/transit/WebServices/RiderAlerts/';
@@ -19,11 +25,14 @@ const getCurrentTimestamp = () => {
 // Function to fetch rider alerts
 const fetchRiderAlerts = async () => {
     try {
+        logger.debug('Fetching rider alerts...');
         const response = await axios.get(RIDER_ALERTS_FEED_URL);
+        logger.debug('Rider alerts fetched successfully.');
+
         const result = await xml2js.parseStringPromise(response.data, { explicitArray: false });
         return result.RecordSet.Record;
     } catch (error) {
-        console.error('Error fetching rider alerts:', error);
+        logger.error('Error fetching rider alerts:', error);
         return null;
     }
 };
@@ -81,44 +90,51 @@ const postToSocialMedia = async (alertMessage) => {
     try {
         const accessToken = process.env.ACCESS_TOKEN;
 
+        logger.debug('Creating container...');
         const container_response = await axios.post(`${THREADS_API_URL}/me/threads?text=${encodeURIComponent(alertMessage)}&media_type=TEXT&access_token=${accessToken}`);
         const container_id = container_response?.data?.id;
 
         if (!container_id) {
-            console.error('Error creating container:', container_response.data);
+            logger.error('Error creating container:', container_response.data);
             return;
         }
 
-        console.debug('Container created:', container_response.data);
+        logger.info('Container created:', container_response.data);
 
+        logger.debug('Publishing container...');
         const publish_response = await axios.post(`${THREADS_API_URL}/me/threads_publish?creation_id=${container_id}&access_token=${accessToken}`);
         const post_id = publish_response?.data?.id;
 
         if (!post_id) {
-            console.error('Error publishing container:', publish_response.data);
+            logger.error('Error publishing container:', publish_response.data);
             return;
         }
 
-        console.debug('Container published:', publish_response.data);
+        logger.info('Container published:', publish_response.data);
 
+        logger.debug('Getting post details...');
         const post_details = await axios.get(`${THREADS_API_URL}/${post_id}?fields=id,permalink&access_token=${accessToken}`);
-        console.log('Alert posted to social media:', post_details.data);
+        console.info('Alert posted to social media:', post_details.data);
     } catch (error) {
-        console.error('Error posting to social media:', error.response);
+        logger.error('Error posting to social media:', error.response);
     }
 };
 
 const processNewAlert = async (alert) => {
+    logger.info('New alert detected:', alert.Message);
+
     const postText = createPostText(alert);
-    console.log('New alert detected:', alert.Message);
+
     await postToSocialMedia(postText);
 };
 
 // Main function
 const main = async () => {
+    logger.trace('Starting the application...');
+
     const alerts = await fetchRiderAlerts();
     if (!alerts) {
-        console.log('No alerts found.');
+        logger.info('No alerts found.');
         return;
     }
 
@@ -137,7 +153,7 @@ const main = async () => {
 
     const newAlerts = allAlerts.filter(alert => alert.MessageStamp > storedTimestamp);
     if (newAlerts.length === 0) {
-        console.log('No new alerts detected.');
+        logger.info(`No new alerts detected after ${storedTimestamp}.`);
         return;
     }
     
@@ -152,6 +168,8 @@ const main = async () => {
     }
 
     writeLatestTimestamp(latestTimestamp);
+
+    logger.trace('Application finished.');
 };
 
 // Execute the main function
