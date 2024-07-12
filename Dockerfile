@@ -7,6 +7,9 @@ FROM node:${NODE_VERSION}-alpine
 # Use production node environment by default.
 ENV NODE_ENV production
 
+# Run the application as a non-root user.
+USER node
+
 WORKDIR /usr/src/app
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
@@ -20,9 +23,6 @@ RUN --mount=type=bind,source=package.json,target=package.json \
 
 # Copy the rest of the source files into the image.
 COPY . .
-
-# Run the application as a non-root user.
-USER node
 
 # Run the application.
 CMD node app.js
