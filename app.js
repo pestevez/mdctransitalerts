@@ -33,7 +33,7 @@ const logger = log4js.getLogger();
 // URL of the rider alerts
 const RIDER_ALERTS_FEED_URL = 'https://www.miamidade.gov/transit/WebServices/RiderAlerts/';
 // Path to the file where the latest timestamp is stored
-const TIMESTAMP_FILE_PATH = path.join(__dirname, 'latest_timestamp.txt');
+const TIMESTAMP_FILE_PATH = path.join(__dirname, 'data/latest_timestamp.txt');
 // Social media API URL
 const THREADS_API_URL = 'https://graph.threads.net';
 
