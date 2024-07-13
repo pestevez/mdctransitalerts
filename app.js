@@ -84,7 +84,9 @@ const readLatestTimestamp = () => {
         writeLatestTimestamp(currentTimestamp);
         return currentTimestamp;
     }
-    return fs.readFileSync(TIMESTAMP_FILE_PATH, 'utf8');
+    return fs.readFileSync(TIMESTAMP_FILE_PATH, 'utf8')
+        .replace('\n', '')
+        .replace('\r', '');
 };
 
 // Function to write the latest timestamp to the file
@@ -156,7 +158,7 @@ const postToSocialMedia = async (alertMessage) => {
         const post_details = await axios.get(`${THREADS_API_URL}/${post_id}?fields=id,permalink&access_token=${accessToken}`);
         console.info('Alert posted to social media:', post_details.data);
     } catch (error) {
-        logger.error('Error posting to social media:', error.response);
+        logger.error('Error posting to social media:', error.response.data);
     }
 };
 
