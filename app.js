@@ -161,7 +161,9 @@ const postToSocialMedia = async (alertMessage) => {
 };
 
 const processNewAlert = async (alert) => {
-    logger.info('New alert detected:', alert.Message);
+    logger.info('New alert detected:',
+        `[ID: ${alert.MessageID}; Time: ${alert.MessageStamp}]`,
+        `${alert.Message}`);
 
     const postText = createPostText(alert);
 
