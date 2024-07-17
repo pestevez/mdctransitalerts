@@ -72,7 +72,7 @@ const fetchRiderAlerts = async () => {
         const result = await xml2js.parseStringPromise(response.data, { explicitArray: false });
         return result.RecordSet.Record;
     } catch (error) {
-        logger.error('Error fetching rider alerts:', error);
+        logger.error('Error fetching rider alerts:', error?.cause);
         return null;
     }
 };
