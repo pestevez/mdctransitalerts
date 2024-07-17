@@ -3,7 +3,11 @@ const axios = require('axios');
 const log4js = require('log4js');
 const xml2js = require('xml2js');
 const fs = require('fs');
+
 const {
+    ACTION_BLOCKED_ERROR_CODE,
+    ACTION_BLOCKED_ERROR_SUBCODE,
+    ACTION_BLOCKED_PAUSED_DURATION_IN_MS,
     DEFAULT_LOG_FILE,
     DEFAULT_LOG_LEVEL,
     DEFAULT_SETTINGS,
@@ -102,8 +106,23 @@ const createPostText = (alert) => {
     return `${emoji} [${alert.Type}] ${alert.Message} \n\nTime: ${alertTime} ET`;
 };
 
+const updateSettingsFromGraphApiResponse = (response, settings) => {
+    if (response?.error?.code === ACTION_BLOCKED_ERROR_CODE &&
+        response?.error?.error_subcode === ACTION_BLOCKED_ERROR_SUBCODE) {
+        
+        const pausedUntil = new Date(Date.now() +
+            ACTION_BLOCKED_PAUSED_DURATION_IN_MS);
+
+        logger.warn(`Action blocked. Pausing the application until ${pausedUntil.toString()}...`);
+        
+        settings.paused = true;
+        settings.pausedUntil = pausedUntil.toUTCString();
+        saveSettings(settings);
+    }
+}
+
 // Function to post alert to social media
-const postToSocialMedia = async (alertMessage) => {
+const postToSocialMedia = async (alertMessage, settings) => {
     try {
         const accessToken = process.env.ACCESS_TOKEN;
 
@@ -113,7 +132,7 @@ const postToSocialMedia = async (alertMessage) => {
 
         if (!container_id) {
             logger.error('Error creating container:', container_response.data);
-            return;
+            return null;
         }
 
         logger.info('Container created:', container_response.data);
@@ -124,7 +143,7 @@ const postToSocialMedia = async (alertMessage) => {
 
         if (!post_id) {
             logger.error('Error publishing container:', publish_response.data);
-            return;
+            return null;
         }
 
         logger.info('Container published:', publish_response.data);
@@ -132,19 +151,23 @@ const postToSocialMedia = async (alertMessage) => {
         logger.debug('Getting post details...');
         const post_details = await axios.get(`${THREADS_API_URL}/${post_id}?fields=id,permalink&access_token=${accessToken}`);
         console.info('Alert posted to social media:', post_details.data);
+
+        return publish_response.data.id;
     } catch (error) {
         logger.error('Error posting to social media:', error.response.data);
+        updateSettingsFromGraphApiResponse(error.response.data, settings);
+        return null;
     }
 };
 
-const processNewAlert = async (alert) => {
+const processNewAlert = async (alert, settings) => {
     logger.info('New alert detected:',
         `[ID: ${alert.MessageID}; Time: ${alert.MessageStamp}]`,
         `${alert.Message}`);
 
     const postText = createPostText(alert);
 
-    await postToSocialMedia(postText);
+    return await postToSocialMedia(postText, settings);
 };
 
 // Main function
@@ -201,7 +224,10 @@ const main = async () => {
     let latestTimestamp = storedTimestamp;
 
     for (const newAlert of newAlerts) {
-        await processNewAlert(newAlert);
+        const postId = await processNewAlert(newAlert, settings);
+        if (!postId)
+            // Stop processing if there is an error
+            break;
         
         if (newAlert.MessageStamp > latestTimestamp) {
             latestTimestamp = newAlert.MessageStamp;
