@@ -3,10 +3,15 @@ const axios = require('axios');
 const log4js = require('log4js');
 const xml2js = require('xml2js');
 const fs = require('fs');
-const path = require('path');
-
-const DEFAULT_LOG_LEVEL = 'info';
-const DEFAULT_LOG_FILE = 'logs/application.log';
+const {
+    DEFAULT_LOG_FILE,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_SETTINGS,
+    RIDER_ALERTS_FEED_URL,
+    SETTINGS_FILE_PATH,
+    THREADS_API_URL,
+    TIMESTAMP_FILE_PATH,
+} = require('./constants');
 
 log4js.configure({
     appenders: {
@@ -30,38 +35,6 @@ log4js.configure({
 });
 const logger = log4js.getLogger();
 
-// URL of the rider alerts
-const RIDER_ALERTS_FEED_URL = 'https://www.miamidade.gov/transit/WebServices/RiderAlerts/';
-// Path to the file where the latest timestamp is stored
-const TIMESTAMP_FILE_PATH = path.join(__dirname, 'data/latest_timestamp.txt');
-// Social media API URL
-const THREADS_API_URL = 'https://graph.threads.net';
-
-// Function to get the current timestamp
-const getCurrentTimestamp = () => {
-    const date = new Date();
-    const formatter = new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-        timeZone: 'America/New_York',
-    });
-
-    const parts = formatter.formatToParts(date);
-    const year = parts.find(part => part.type === 'year').value;
-    const month = parts.find(part => part.type === 'month').value;
-    const day = parts.find(part => part.type === 'day').value;
-    const hour = parts.find(part => part.type === 'hour').value;
-    const minute = parts.find(part => part.type === 'minute').value;
-    const second = parts.find(part => part.type === 'second').value;
-
-    return `${year}${month}${day}${hour}${minute}${second}`;
-};
-
 // Function to fetch rider alerts
 const fetchRiderAlerts = async () => {
     try {
@@ -77,22 +50,24 @@ const fetchRiderAlerts = async () => {
     }
 };
 
-// Function to read the latest timestamp from the file
-const readLatestTimestamp = () => {
-    if (!fs.existsSync(TIMESTAMP_FILE_PATH)) {
-        const currentTimestamp = getCurrentTimestamp();
-        writeLatestTimestamp(currentTimestamp);
-        return currentTimestamp;
+const readSettings = () => {
+    if (!fs.existsSync(SETTINGS_FILE_PATH)) {
+        logger.info('Settings file not found. Using default settings.');
+        return DEFAULT_SETTINGS;
     }
-    return fs.readFileSync(TIMESTAMP_FILE_PATH, 'utf8')
-        .replace('\n', '')
-        .replace('\r', '');
-};
 
-// Function to write the latest timestamp to the file
-const writeLatestTimestamp = (timestamp) => {
-    fs.writeFileSync(TIMESTAMP_FILE_PATH, timestamp, 'utf8');
-};
+    try {
+        return JSON.parse(fs.readFileSync(SETTINGS_FILE_PATH, 'utf8'));
+    }
+    catch (error) {
+        logger.error('Error reading settings:', error);
+        return DEFAULT_SETTINGS;
+    }
+}
+
+const saveSettings = (settings) => {
+    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(settings, null, 4), 'utf8');
+}
 
 // Function to format the timestamp
 const formatTimestamp = (timestamp) => {
@@ -175,6 +150,28 @@ const processNewAlert = async (alert) => {
 // Main function
 const main = async () => {
     logger.trace('Starting the application...');
+    const settings = readSettings();
+
+    if (!settings?.enabled) {
+        logger.info('Application is disabled. Exiting...');
+        return;
+    }
+
+    if (settings?.paused) {
+        const pausedUntil = new Date(settings?.pausedUntil);
+        const currentTime = new Date();
+
+        if (pausedUntil > currentTime) {
+            logger.info(`Application is paused until ${settings?.pausedUntil}. Exiting...`);
+            return;
+        }
+
+        settings.paused = false;
+        settings.pausedUntil = null;
+        saveSettings(settings);
+
+        logger.info('Application is unpaused.');
+    }
 
     const alerts = await fetchRiderAlerts();
     if (!alerts) {
@@ -183,7 +180,6 @@ const main = async () => {
     }
 
     const allAlerts = [];
-    const storedTimestamp = readLatestTimestamp();
 
     if (alerts.length === undefined) {
         // Single record in XML
@@ -195,6 +191,7 @@ const main = async () => {
         }
     }
 
+    const storedTimestamp = settings?.lastProcessedAlertTimestamp || '0';
     const newAlerts = allAlerts.filter(alert => alert.MessageStamp > storedTimestamp);
     if (newAlerts.length === 0) {
         logger.info(`No new alerts detected after ${storedTimestamp}.`);
@@ -211,7 +208,8 @@ const main = async () => {
         }
     }
 
-    writeLatestTimestamp(latestTimestamp);
+    settings.lastProcessedAlertTimestamp = latestTimestamp;
+    saveSettings(settings);
 
     logger.trace('Application finished.');
 };
