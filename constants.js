@@ -2,7 +2,7 @@ const path = require('path');
 
 const ACTION_BLOCKED_ERROR_CODE = 1;
 const ACTION_BLOCKED_ERROR_SUBCODE = 2207051;
-const ACTION_BLOCKED_PAUSED_DURATION_IN_MS = 60 * 60 * 100; // 1 hour
+const ACTION_BLOCKED_PAUSED_DURATION_IN_MS = 60 * 60 * 1000; // 1 hour
 
 const DEFAULT_LOG_FILE = 'logs/application.log';
 const DEFAULT_LOG_LEVEL = 'info';
