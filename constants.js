@@ -25,6 +25,8 @@ const THREADS_API_URL = 'https://graph.threads.net';
 // Path to the file where the latest timestamp is stored
 const TIMESTAMP_FILE_PATH = path.join(__dirname, 'data/latest_timestamp.txt');
 
+const REPLY_TEXT = "Follow this account to get up to date information about Miami Dade Transit. (Unofficial account)";
+
 module.exports = {
     ACTION_BLOCKED_ERROR_CODE,
     ACTION_BLOCKED_ERROR_SUBCODE,
@@ -36,4 +38,5 @@ module.exports = {
     SETTINGS_FILE_PATH,
     THREADS_API_URL,
     TIMESTAMP_FILE_PATH,
+    REPLY_TEXT,
 };

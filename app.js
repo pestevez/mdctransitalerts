@@ -15,6 +15,7 @@ const {
     SETTINGS_FILE_PATH,
     THREADS_API_URL,
     TIMESTAMP_FILE_PATH,
+    REPLY_TEXT,
 } = require('./constants');
 
 log4js.configure({
@@ -122,12 +123,22 @@ const updateSettingsFromGraphApiResponse = (response, settings) => {
 }
 
 // Function to post alert to social media
-const postToSocialMedia = async (alertMessage, settings) => {
+const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
     try {
         const accessToken = process.env.ACCESS_TOKEN;
 
         logger.debug('Creating container...');
-        const container_response = await axios.post(`${THREADS_API_URL}/me/threads?text=${encodeURIComponent(alertMessage)}&media_type=TEXT&access_token=${accessToken}`);
+        const requestBody = {
+            media_type: 'TEXT',
+            text: alertMessage,
+            access_token: accessToken
+        };
+
+        if (replyToId) {
+            requestBody.reply_to_id = replyToId;
+        }
+
+        const container_response = await axios.post(`${THREADS_API_URL}/me/threads`, requestBody);
         const container_id = container_response?.data?.id;
 
         if (!container_id) {
@@ -166,8 +177,13 @@ const processNewAlert = async (alert, settings) => {
         `${alert.Message}`);
 
     const postText = createPostText(alert);
+    const postId = await postToSocialMedia(postText, settings);
 
-    return await postToSocialMedia(postText, settings);
+    if (postId) {
+        await postToSocialMedia(REPLY_TEXT, settings, postId);
+    }
+
+    return postId;
 };
 
 // Main function
