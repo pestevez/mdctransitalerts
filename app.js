@@ -162,7 +162,7 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
 
         logger.debug('Getting post details...');
         const post_details = await axios.get(`${THREADS_API_URL}/${post_id}?fields=id,permalink&access_token=${accessToken}`);
-        console.info('Alert posted to social media:', post_details.data);
+        logger.info('Alert posted to social media:', post_details.data);
 
         const endTime = Date.now();
         const duration = endTime - startTime;
