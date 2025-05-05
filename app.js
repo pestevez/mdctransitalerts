@@ -124,6 +124,7 @@ const updateSettingsFromGraphApiResponse = (response, settings) => {
 
 // Function to post alert to social media
 const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
+    const startTime = Date.now();
     try {
         const accessToken = process.env.ACCESS_TOKEN;
 
@@ -138,7 +139,7 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
             requestBody.reply_to_id = replyToId;
         }
 
-        const container_response = await axios.post(`${THREADS_API_URL}/me/threads`, requestBody);
+        const container_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads`, requestBody);
         const container_id = container_response?.data?.id;
 
         if (!container_id) {
@@ -149,7 +150,7 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
         logger.info('Container created:', container_response.data);
 
         logger.debug('Publishing container...');
-        const publish_response = await axios.post(`${THREADS_API_URL}/me/threads_publish?creation_id=${container_id}&access_token=${accessToken}`);
+        const publish_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads_publish?creation_id=${container_id}&access_token=${accessToken}`);
         const post_id = publish_response?.data?.id;
 
         if (!post_id) {
@@ -162,6 +163,10 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
         logger.debug('Getting post details...');
         const post_details = await axios.get(`${THREADS_API_URL}/${post_id}?fields=id,permalink&access_token=${accessToken}`);
         console.info('Alert posted to social media:', post_details.data);
+
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+        logger.info(`Time taken to post: ${duration}ms (${replyToId ? 'Reply' : 'Top-level post'})`);
 
         return publish_response.data.id;
     } catch (error) {
