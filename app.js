@@ -16,6 +16,8 @@ const {
     THREADS_API_URL,
     TIMESTAMP_FILE_PATH,
     REPLY_TEXT,
+    DEFAULT_MAX_CONTAINER_STATUS_ATTEMPTS,
+    DEFAULT_CONTAINER_STATUS_INITIAL_WAIT_MS,
 } = require('./constants');
 
 log4js.configure({
@@ -122,11 +124,40 @@ const updateSettingsFromGraphApiResponse = (response, settings) => {
     }
 }
 
+// Helper function to wait for a given number of milliseconds
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Function to check container status with exponential backoff
+const waitForContainerReady = async (container_id, accessToken, maxAttempts, logger, initialWaitMs) => {
+    let attempt = 0;
+    let delay = initialWaitMs;
+    while (attempt < maxAttempts) {
+        attempt++;
+        try {
+            logger.debug(`Checking container status (attempt ${attempt}/${maxAttempts})...`);
+            const status_response = await axios.get(`${THREADS_API_URL}/${container_id}?fields=status&access_token=${accessToken}`);
+            const status = status_response?.data?.status;
+            logger.info(`Container status: ${status}`);
+            if (status === 'FINISHED') {
+                return true;
+            }
+        } catch (error) {
+            logger.warn('Error fetching container status:', error?.response?.data || error);
+        }
+        await wait(delay);
+        delay *= 2; // Exponential backoff
+    }
+    logger.error('Container was not ready after maximum attempts.');
+    return false;
+};
+
 // Function to post alert to social media
 const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
     const startTime = Date.now();
     try {
         const accessToken = process.env.ACCESS_TOKEN;
+        const maxAttempts = parseInt(process.env.MAX_CONTAINER_STATUS_ATTEMPTS) || DEFAULT_MAX_CONTAINER_STATUS_ATTEMPTS;
+        const initialWaitMs = parseInt(process.env.CONTAINER_STATUS_INITIAL_WAIT_MS) || DEFAULT_CONTAINER_STATUS_INITIAL_WAIT_MS;
 
         logger.debug('Creating container...');
         const requestBody = {
@@ -149,6 +180,13 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
 
         logger.info('Container created:', container_response.data);
 
+        // Wait for container to be ready
+        const ready = await waitForContainerReady(container_id, accessToken, maxAttempts, logger, initialWaitMs);
+        if (!ready) {
+            logger.error('Container not ready for publishing. Aborting post.');
+            return null;
+        }
+
         logger.debug('Publishing container...');
         const publish_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads_publish?creation_id=${container_id}&access_token=${accessToken}`);
         const post_id = publish_response?.data?.id;
@@ -170,8 +208,8 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
 
         return publish_response.data.id;
     } catch (error) {
-        logger.error('Error posting to social media:', error.response.data);
-        updateSettingsFromGraphApiResponse(error.response.data, settings);
+        logger.error('Error posting to social media:', error.response?.data || error);
+        updateSettingsFromGraphApiResponse(error.response?.data, settings);
         return null;
     }
 };

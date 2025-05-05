@@ -63,6 +63,21 @@ npm start
 
 The application uses a settings file located at `data/settings.json`. If the file does not exist, default settings will be used. You can modify the settings file to enable/disable the application or adjust other parameters.
 
+## Environment Variables
+
+In addition to the required variables, you can configure the following (optional):
+
+```
+MAX_CONTAINER_STATUS_ATTEMPTS=5                # Maximum number of attempts to check if a Threads container is ready (default: 5)
+CONTAINER_STATUS_INITIAL_WAIT_MS=1000          # Initial wait time in milliseconds before first status check (default: 1000)
+```
+
+## Improved Posting Logic
+
+When posting to Threads, the app now waits for the media container to be ready before publishing. It checks the container status with exponential backoff (starting at 1 second, doubling each time), up to the configured maximum number of attempts. This helps avoid errors from publishing too soon.
+
+If the container is not ready after the maximum attempts, the post is aborted and an error is logged.
+
 ## License
 
 This project is licensed under the ISC License. 
