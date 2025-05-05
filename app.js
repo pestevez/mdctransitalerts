@@ -25,7 +25,7 @@ log4js.configure({
             filename: process.env.LOG_FILE || DEFAULT_LOG_FILE,
             layout: {
                 type: 'pattern',
-                pattern: '[%d{yyyy-MM-dd hh:mm:ss}] [%p] - %m',
+                pattern: '[%d{yyyy-MM-dd hh:mm:ss.SSS}] [%p] - %m',
             },
             maxLogSize: 10485760,
         },
