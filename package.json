@@ -18,9 +18,13 @@
   },
   "homepage": "https://github.com/pestevez/mdctransitalerts#readme",
   "dependencies": {
+    "@trigger.dev/sdk": "3.3.5",
     "axios": "^1.7.2",
     "dotenv": "^16.4.5",
     "log4js": "^6.9.1",
     "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "3.3.5"
   }
 }

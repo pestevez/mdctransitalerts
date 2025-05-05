@@ -132,3 +132,4 @@ dist
 # Custom
 latest_timestamp.txt
 data
+.trigger
