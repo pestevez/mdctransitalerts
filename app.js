@@ -153,7 +153,6 @@ const waitForContainerReady = async (container_id, accessToken, maxAttempts, log
 
 // Function to post alert to social media
 const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
-    const startTime = Date.now();
     try {
         const accessToken = process.env.ACCESS_TOKEN;
         const maxAttempts = parseInt(process.env.MAX_CONTAINER_STATUS_ATTEMPTS) || DEFAULT_MAX_CONTAINER_STATUS_ATTEMPTS;
@@ -188,7 +187,14 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
         }
 
         logger.debug('Publishing container...');
+        const startTime = Date.now();
+
         const publish_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads_publish?creation_id=${container_id}&access_token=${accessToken}`);
+        
+        const endTime = Date.now();
+        const duration = endTime - startTime;
+        logger.debug(`Time taken to publish: ${duration}ms (${replyToId ? 'Reply' : 'Top-level post'})`);
+        
         const post_id = publish_response?.data?.id;
 
         if (!post_id) {
@@ -201,10 +207,6 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
         logger.debug('Getting post details...');
         const post_details = await axios.get(`${THREADS_API_URL}/${post_id}?fields=id,permalink&access_token=${accessToken}`);
         logger.info('Alert posted to social media:', post_details.data);
-
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-        logger.info(`Time taken to post: ${duration}ms (${replyToId ? 'Reply' : 'Top-level post'})`);
 
         return publish_response.data.id;
     } catch (error) {
