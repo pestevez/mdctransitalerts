@@ -152,13 +152,14 @@ const waitForContainerReady = async (container_id, accessToken, maxAttempts, log
 };
 
 // Function to post alert to social media
-const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
+const postToSocialMedia = async (alertMessage, settings, autoPublish, replyToId) => {
     try {
         const accessToken = process.env.ACCESS_TOKEN;
         const maxAttempts = parseInt(process.env.MAX_CONTAINER_STATUS_ATTEMPTS) || DEFAULT_MAX_CONTAINER_STATUS_ATTEMPTS;
         const initialWaitMs = parseInt(process.env.CONTAINER_STATUS_INITIAL_WAIT_MS) || DEFAULT_CONTAINER_STATUS_INITIAL_WAIT_MS;
 
-        logger.debug('Creating container...');
+        logger.debug(`Starting publishing flow${autoPublish ? ' with auto-publish' : ''}...`);
+
         const requestBody = {
             media_type: 'TEXT',
             text: alertMessage,
@@ -169,52 +170,60 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
             requestBody.reply_to_id = replyToId;
         }
 
+        if (autoPublish) {
+            requestBody.auto_publish_text = true;
+        }
+
         const startTime = Date.now();
+        let containerWaitForReadyStateDuration = 0;
 
-        const container_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads`, requestBody);
-        const container_id = container_response?.data?.id;
+        let container_or_media_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads`, requestBody);
 
-        if (!container_id) {
-            logger.error('Error creating container:', container_response.data);
-            return null;
+        if (!autoPublish) {
+            const container_id = container_or_media_response?.data?.id;
+
+            if (!container_id) {
+                logger.error('Error creating container:', container_or_media_response.data);
+                return null;
+            }
+
+            logger.info('Container created:', container_or_media_response.data);
+            
+            const containerWaitForReadyStateStartTime = Date.now();
+            // Wait for container to be ready
+            const ready = await waitForContainerReady(container_id, accessToken, maxAttempts, logger, initialWaitMs);
+            if (!ready) {
+                logger.error('Container not ready for publishing. Aborting post.');
+                return null;
+            }
+            containerWaitForReadyStateDuration = Date.now() - containerWaitForReadyStateStartTime;
+
+            logger.debug('Publishing container...');
+            const publishStartTime = Date.now();
+
+            container_or_media_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads_publish?creation_id=${container_id}&access_token=${accessToken}`);
+            
+            const publishDuration = Date.now() - publishStartTime;
+            
+            logger.debug(`Time taken to publish: ${publishDuration}ms (${replyToId ? 'Reply' : 'Top-level post'})`);
         }
 
-        logger.info('Container created:', container_response.data);
+        logger.debug(`Time taken to post${autoPublish ? '' : ' (excluding container wait)'}: ${Date.now() - startTime - containerWaitForReadyStateDuration}ms`);
 
-        
-        const containerWaitForReadyStateStartTime = Date.now();
-        // Wait for container to be ready
-        const ready = await waitForContainerReady(container_id, accessToken, maxAttempts, logger, initialWaitMs);
-        if (!ready) {
-            logger.error('Container not ready for publishing. Aborting post.');
-            return null;
-        }
-        const containerWaitForReadyStateDuration = Date.now() - containerWaitForReadyStateStartTime;
-
-        logger.debug('Publishing container...');
-        const publishStartTime = Date.now();
-
-        const publish_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads_publish?creation_id=${container_id}&access_token=${accessToken}`);
-        
-        const endTime = Date.now();
-        const publishDuration = endTime - publishStartTime;
-        
-        logger.debug(`Time taken to publish: ${publishDuration}ms (${replyToId ? 'Reply' : 'Top-level post'})`);
-        logger.debug(`Time taken to post (excluding container wait): ${endTime - startTime - containerWaitForReadyStateDuration}ms`);
-        const post_id = publish_response?.data?.id;
+        const post_id = container_or_media_response?.data?.id;
 
         if (!post_id) {
-            logger.error('Error publishing container:', publish_response.data);
+            logger.error('Error publishing:', container_or_media_response.data);
             return null;
         }
 
-        logger.info('Container published:', publish_response.data);
+        logger.info('Post created:', container_or_media_response.data);
 
         logger.debug('Getting post details...');
         const post_details = await axios.get(`${THREADS_API_URL}/${post_id}?fields=id,permalink&access_token=${accessToken}`);
         logger.info('Alert posted to social media:', post_details.data);
 
-        return publish_response.data.id;
+        return post_id;
     } catch (error) {
         logger.error('Error posting to social media:', error.response?.data || error);
         updateSettingsFromGraphApiResponse(error.response?.data, settings);
@@ -227,11 +236,13 @@ const processNewAlert = async (alert, settings) => {
         `[ID: ${alert.MessageID}; Time: ${alert.MessageStamp}]`,
         `${alert.Message}`);
 
+    const autoPublish = settings?.autoPublish;
+
     const postText = createPostText(alert);
-    const postId = await postToSocialMedia(postText, settings);
+    const postId = await postToSocialMedia(postText, settings, autoPublish, null);
 
     if (postId) {
-        await postToSocialMedia(REPLY_TEXT, settings, postId);
+        await postToSocialMedia(REPLY_TEXT, settings, autoPublish, postId);
     }
 
     return postId;
