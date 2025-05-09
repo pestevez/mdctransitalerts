@@ -169,6 +169,8 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
             requestBody.reply_to_id = replyToId;
         }
 
+        const startTime = Date.now();
+
         const container_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads`, requestBody);
         const container_id = container_response?.data?.id;
 
@@ -179,22 +181,26 @@ const postToSocialMedia = async (alertMessage, settings, replyToId = null) => {
 
         logger.info('Container created:', container_response.data);
 
+        
+        const containerWaitForReadyStateStartTime = Date.now();
         // Wait for container to be ready
         const ready = await waitForContainerReady(container_id, accessToken, maxAttempts, logger, initialWaitMs);
         if (!ready) {
             logger.error('Container not ready for publishing. Aborting post.');
             return null;
         }
+        const containerWaitForReadyStateDuration = Date.now() - containerWaitForReadyStateStartTime;
 
         logger.debug('Publishing container...');
-        const startTime = Date.now();
+        const publishStartTime = Date.now();
 
         const publish_response = await axios.post(`${THREADS_API_URL}/25913247584989006/threads_publish?creation_id=${container_id}&access_token=${accessToken}`);
         
         const endTime = Date.now();
-        const duration = endTime - startTime;
-        logger.debug(`Time taken to publish: ${duration}ms (${replyToId ? 'Reply' : 'Top-level post'})`);
+        const publishDuration = endTime - publishStartTime;
         
+        logger.debug(`Time taken to publish: ${publishDuration}ms (${replyToId ? 'Reply' : 'Top-level post'})`);
+        logger.debug(`Time taken to post (excluding container wait): ${endTime - startTime - containerWaitForReadyStateDuration}ms`);
         const post_id = publish_response?.data?.id;
 
         if (!post_id) {
