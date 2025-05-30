@@ -30,6 +30,8 @@ const REPLY_TEXT = "Follow this account to get up to date information about Miam
 const DEFAULT_MAX_CONTAINER_STATUS_ATTEMPTS = 5;
 const DEFAULT_CONTAINER_STATUS_INITIAL_WAIT_MS = 1000;
 
+const MIAMI_FL_LOCATION_ID = '1209084156595889';
+
 module.exports = {
     ACTION_BLOCKED_ERROR_CODE,
     ACTION_BLOCKED_ERROR_SUBCODE,

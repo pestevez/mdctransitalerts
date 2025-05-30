@@ -18,6 +18,7 @@ const {
     REPLY_TEXT,
     DEFAULT_MAX_CONTAINER_STATUS_ATTEMPTS,
     DEFAULT_CONTAINER_STATUS_INITIAL_WAIT_MS,
+    MIAMI_FL_LOCATION_ID,
 } = require('./constants');
 
 log4js.configure({
@@ -163,6 +164,7 @@ const postToSocialMedia = async (alertMessage, settings, autoPublish, replyToId)
         const requestBody = {
             media_type: 'TEXT',
             text: alertMessage,
+            location_id: MIAMI_FL_LOCATION_ID,
             access_token: accessToken
         };
 
