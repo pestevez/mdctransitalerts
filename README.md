@@ -71,6 +71,7 @@ In addition to the required variables, you can configure the following (optional
 MAX_CONTAINER_STATUS_ATTEMPTS=5                # Maximum number of attempts to check if a Threads container is ready (default: 5)
 CONTAINER_STATUS_INITIAL_WAIT_MS=1000          # Initial wait time in milliseconds before first status check (default: 1000)
 AUTO_REPLY=false                               # Whether to automatically reply to posts with transit alert info (default: false)
+AUTO_REFRESH_TOKEN=true                        # Whether to automatically refresh the access token (default: true)
 ```
 
 ## Improved Posting Logic
@@ -78,6 +79,12 @@ AUTO_REPLY=false                               # Whether to automatically reply 
 When posting to Threads, the app now waits for the media container to be ready before publishing. It checks the container status with exponential backoff (starting at 1 second, doubling each time), up to the configured maximum number of attempts. This helps avoid errors from publishing too soon.
 
 If the container is not ready after the maximum attempts, the post is aborted and an error is logged.
+
+## Token Refresh
+
+The application automatically refreshes the Threads API access token after processing alerts to ensure it remains valid for future runs. Long-lived tokens are valid for 60 days and can be refreshed as long as they are at least 24 hours old but have not expired.
+
+The token refresh happens automatically using your existing long-lived access token - no additional configuration is required. You can disable this feature by setting `AUTO_REFRESH_TOKEN=false` in your `.env` file.
 
 ## License
 

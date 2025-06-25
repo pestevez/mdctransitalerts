@@ -128,6 +128,51 @@ const updateSettingsFromGraphApiResponse = (response, settings) => {
 // Helper function to wait for a given number of milliseconds
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+// Function to refresh the access token
+const refreshAccessToken = async () => {
+    try {
+        const currentToken = process.env.ACCESS_TOKEN;
+
+        if (!currentToken) {
+            logger.error('ACCESS_TOKEN environment variable is not set');
+            return false;
+        }
+
+        logger.trace('Refreshing access token...');
+        
+        const response = await axios.get(`${THREADS_API_URL}/refresh_access_token`, {
+            params: {
+                grant_type: 'th_refresh_token',
+                access_token: currentToken
+            }
+        });
+
+        const { access_token, expires_in } = response.data;
+        
+        if (access_token) {
+            // Update the environment variable for this process
+            process.env.ACCESS_TOKEN = access_token;
+            
+            const expiresInDays = Math.floor(expires_in / (24 * 60 * 60));
+            logger.debug(`Access token refreshed successfully. New token expires in ${expiresInDays} days (${expires_in} seconds)`);
+            
+            return true;
+        } else {
+            logger.error('Token refresh response did not contain access_token');
+            return false;
+        }
+    } catch (error) {
+        logger.error('Error refreshing access token:', error.response?.data || error.message);
+        
+        // Log specific error details for troubleshooting
+        if (error.response?.data?.error) {
+            logger.error('Token refresh error details:', error.response.data.error);
+        }
+        
+        return false;
+    }
+};
+
 // Function to check container status with exponential backoff
 const waitForContainerReady = async (container_id, accessToken, maxAttempts, logger, initialWaitMs) => {
     let attempt = 0;
@@ -317,6 +362,18 @@ const main = async () => {
 
     settings.lastProcessedAlertTimestamp = latestTimestamp;
     saveSettings(settings);
+
+    // Refresh access token after processing alerts (if enabled)
+    const autoRefreshToken = process.env.AUTO_REFRESH_TOKEN !== 'false'; // Default to true if not set
+    if (autoRefreshToken) {
+        const tokenRefreshSuccess = await refreshAccessToken();
+        if (!tokenRefreshSuccess) {
+            logger.error('Failed to refresh access token. Exiting...');
+            return;
+        }
+    } else {
+        logger.debug('Token refresh is disabled. Skipping token refresh.');
+    }
 
     logger.trace('Application finished.');
 };
