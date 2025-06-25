@@ -70,6 +70,7 @@ In addition to the required variables, you can configure the following (optional
 ```
 MAX_CONTAINER_STATUS_ATTEMPTS=5                # Maximum number of attempts to check if a Threads container is ready (default: 5)
 CONTAINER_STATUS_INITIAL_WAIT_MS=1000          # Initial wait time in milliseconds before first status check (default: 1000)
+AUTO_REPLY=false                               # Whether to automatically reply to posts with transit alert info (default: false)
 ```
 
 ## Improved Posting Logic

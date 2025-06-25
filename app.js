@@ -239,11 +239,12 @@ const processNewAlert = async (alert, settings) => {
         `${alert.Message}`);
 
     const autoPublish = settings?.autoPublish;
+    const autoReply = process.env.AUTO_REPLY === 'true'; // Default to false if not set
 
     const postText = createPostText(alert);
     const postId = await postToSocialMedia(postText, settings, autoPublish, null);
 
-    if (postId) {
+    if (postId && autoReply) {
         await postToSocialMedia(REPLY_TEXT, settings, autoPublish, postId);
     }
 
