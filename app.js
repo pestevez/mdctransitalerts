@@ -19,6 +19,7 @@ const {
     DEFAULT_MAX_CONTAINER_STATUS_ATTEMPTS,
     DEFAULT_CONTAINER_STATUS_INITIAL_WAIT_MS,
     MIAMI_FL_LOCATION_ID,
+    MIAMI_TRANSIT_TOPIC_TAG,
 } = require('./constants');
 
 log4js.configure({
@@ -210,6 +211,7 @@ const postToSocialMedia = async (alertMessage, settings, autoPublish, replyToId)
             media_type: 'TEXT',
             text: alertMessage,
             location_id: MIAMI_FL_LOCATION_ID,
+            topic_tag: MIAMI_TRANSIT_TOPIC_TAG,
             access_token: accessToken
         };
 
